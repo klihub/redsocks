@@ -1,0 +1,44 @@
+# Interfaces that, when coming up, trigger routing to be forced through
+# the proxy. This is a list of exact interface names.
+TRIGGER_INTERFACES="vpn0"
+
+# Interfaces that will be routed/forwarded through the proxy. This is a
+# list of IPTABLES interface patterns (which also can be an exact name).
+FORWARD_INTERFACES="docker+ vbr+"
+
+# URL and timeout to fetch the proxy autoconfiguration file from.
+AUTOPROXY_URL="http://your.proxy.url.here"
+AUTOPROXY_TIMEOUT=60
+
+# Local address and port redsocks should listen on.
+REDSOCKS_ADDRESS="0.0.0.0"
+REDSOCKS_PORT="1080"
+REDSOCKS_TEMPLATE=/etc/redsocks.conf.template
+
+# Address or hostname, port and type of proxy to use.
+PROXY_ADDRESS="your.proxy.address.or.hostname.here"
+PROXY_PORT="1080"
+PROXY_TYPE="socks5"
+
+# List of all the networks or addresses which need to be
+# accessed bypassing the proxy.
+PROXY_BYPASS=""
+
+#
+# By default the following networks are always forced to
+# bypass the proxy, so you don't need to list them using
+# PROXY_BYPASS above.
+#
+#   0.0.0.0/8
+#   10.0.0.0/8
+#   163.33.0.0/16
+#   169.254.0.0/16
+#   172.16.0.0/12
+#   192.168.0.0/16
+#   224.0.0.0/4
+#   240.0.0.0/4
+#
+# If for any reason you need to change these defaults, you can do it
+# by setting PROXY_ALWAYS_BYPASS to one that fits your network setup.
+# PROXY_ALWAYS_BYPASS="the.list.of.all/proxy exceptions.for.your.network/setup"
+#

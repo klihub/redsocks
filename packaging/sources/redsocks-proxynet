@@ -1,0 +1,97 @@
+#!/usr/bin/perl
+
+@nets = ({}, {}, {}, {}, {}, {}, {}, {},
+	 {}, {}, {}, {}, {}, {}, {}, {},
+	 {}, {}, {}, {}, {}, {}, {}, {},
+	 {}, {}, {}, {}, {}, {}, {}, {},
+	 {});
+@xnets = ({}, {}, {}, {}, {}, {}, {}, {},
+	 {}, {}, {}, {}, {}, {}, {}, {},
+	 {}, {}, {}, {}, {}, {}, {}, {},
+	 {}, {}, {}, {}, {}, {}, {}, {},
+	 {});
+
+sub dotquadtoip($) {
+    my($q) = @_;
+
+    my @a = split(/\./, $q);
+    return 0 if (scalar(@a) != 4);
+    
+    return ($a[0] << 24) + ($a[1] << 16) + ($a[2] << 8) + $a[3];
+}
+
+sub dotquad($) {
+    my($ip) = @_;
+    return sprintf("%u.%u.%u.%u",
+		   ($ip >> 24) & 0xff,
+		   ($ip >> 16) & 0xff,
+		   ($ip >> 8) & 0xff,
+		   $ip & 0xff);
+}
+
+sub maskwidth($) {
+    my($mask) = @_;
+    my $n = 32;
+    my $m = 0xffffffff;
+
+    while ($n && $m != $mask) {
+	$m = ($m << 1) & 0xffffffff;
+	$n--;
+    }
+
+    return $n;
+}
+
+sub addnet($$) {
+    my($net, $mask) = @_;
+
+    # Is this an existing net or is it part of a larger net?
+    my $i, $m;
+
+    for ($i = 0; $i <= $mask; $i++) {
+	$m = (0xffffffff >> $i) ^ 0xffffffff;
+	return if (${$nets[$i]}{$net & $m}); # Nothing to do
+    }
+
+    # Is this a peer of an existing net?
+    if ($mask > 0 && ${$nets[$mask]}{$net ^ (1 << (32-$mask))}) {
+	delete ${$nets[$mask]}{$net ^ (1 << (32-$mask))};
+	$mask--;
+	$m = (0xffffffff >> $mask) ^ 0xffffffff;
+	$net &= $m;
+	addnet($net, $mask);
+    } else {
+	${$nets[$mask]}{$net}++;
+    }
+}
+
+$linesread = 0;
+while (defined($line = <>)) {
+    ++$linesread;
+    while ($line =~ /isinnet\s*\(\s*[^"]*\s*,\s*\"([0-9.]+)\"\s*,\s*\"([0-9.]+)\"\s*\)/i) {
+	my $net  = dotquadtoip($1);
+	my $mask = maskwidth(dotquadtoip($2));
+	${$xnets[$mask]}{$net}++;
+	$line = "$'";
+    }
+    if ($line =~ /<(html|\?xml|!DOCTYPE)/) {
+	chomp $line;
+	print STDERR "Found XML/HTML line: \"${line}\"\nCaptive portal?\n";
+	exit 1;
+    }
+}
+exit 1 if $linesread == 0;
+
+# Add the nets in order of descending size
+for ($i = 0; $i <= 32; $i++) {
+    foreach $n (keys(%{$xnets[$i]})) {
+	addnet($n, $i);
+    }
+}
+
+for ($i = 0; $i <= 32; $i++) {
+    foreach $n (sort(keys(%{$nets[$i]}))) {
+	print dotquad($n), "/", $i, "\n";
+	++$printed;
+    }
+}
