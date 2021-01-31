@@ -1,0 +1,102 @@
+Name: redsocks
+Version: __VERSION__
+Release: 100*__RELEASE__ + __PATCHES__
+
+Summary: A transparent TCP-to-proxy redirector
+Group: System Environment/Daemons
+License: APL2.0
+URL: http://github.com/darkk/redsocks.git
+
+Source0: https://github.com/klihub/%{NAME}/archive/v%{VERSION}-%{RELEASE}.tar.gz
+Source1: redsocks.conf.sample
+Source2: redsocks.env
+Source3: redsocks.service
+
+# subpackage NetworkManager-config
+Source10: redsocks.conf.template
+Source11: redsocks-setup-proxy.sh
+Source12: redsocks-proxynet
+Source13: redsocks-setup-proxy.sysconfig
+
+BuildRequires: gcc
+BuildRequires: make
+BuildRequires: libevent-devel
+Requires: systemd
+
+%description
+Redsocks allows you to redirect any TCP connection to SOCKS or HTTPS proxy
+using your firewall, so redirection may be system-wide or network-wide.
+Redsocks can be useful for you if
+  - you want to route part of TCP traffic via OpenSSH DynamicForward Socks5
+    port using firewall policies (original goal for redsocks)
+
+  - you use DVB ISP and this ISP provides internet connectivity with some
+    special daemon that may be also called "Internet accelerator" and the
+    accelerator acts as a proxy and has no "transparent proxy" feature but
+    and you need it (second original goal for redsocks)
+
+  - you have to pass traffic through a proxy as an enforced network policy
+
+%package NetworkManager-config
+Summary: NetworkManager configuration for transparent proxying using redsocks.
+Group: Configuration
+BuildArch: noarch
+Requires: redsocks
+Conflicts: firewalld
+Recommends: iptables-services
+Requires: /usr/sbin/iptables
+Requires: /usr/sbin/ip
+Requires: /usr/bin/sort
+Requires: /usr/bin/stat
+Requires: /usr/bin/logger
+Requires: NetworkManager
+Requires: systemd
+Requires: curl
+Requires: perl
+
+%description NetworkManager-config
+NetworkManager scripts and configuration files to enable automatic
+startup, configuration, and shutdown of transparent proxying using
+redsocks.
+
+%prep
+%setup -n %{NAME}-%{VERSION}-%{RELEASE}
+
+%build
+make
+
+%install
+rm -fr ${RPM_BUILD_ROOT}
+
+mkdir -p ${RPM_BUILD_ROOT}%{_bindir}
+mkdir -p ${RPM_BUILD_ROOT}%{_sysconfdir}/sysconfig
+mkdir -p ${RPM_BUILD_ROOT}%{_unitdir}
+install -m 0755 redsocks ${RPM_BUILD_ROOT}%{_bindir}
+install -m 0644 %{SOURCE1} ${RPM_BUILD_ROOT}%{_sysconfdir}
+install -m 0644 %{SOURCE2} ${RPM_BUILD_ROOT}%{_sysconfdir}/sysconfig
+install -m 0644 %{SOURCE3} ${RPM_BUILD_ROOT}%{_unitdir}
+
+mkdir -p ${RPM_BUILD_ROOT}%{_sysconfdir}/NetworkManager/dispatcher.d
+install -m 0644 %{SOURCE10} ${RPM_BUILD_ROOT}%{_sysconfdir}
+install -m 0644 %{SOURCE13} ${RPM_BUILD_ROOT}%{_sysconfdir}/sysconfig/redsocks-setup-proxy.sample
+install -m 0644 %{SOURCE13} ${RPM_BUILD_ROOT}%{_sysconfdir}/sysconfig/redsocks-setup-proxy
+install -m 0755 %{SOURCE11} ${RPM_BUILD_ROOT}%{_bindir}
+install -m 0644 %{SOURCE12} ${RPM_BUILD_ROOT}%{_bindir}
+for i in 30-prepare-redsocks 60-setup-redsocks 90-finalize-redsocks; do
+ln -sf %{_bindir}/redsocks-setup-proxy.sh \
+    ${RPM_BUILD_ROOT}%{_sysconfdir}/NetworkManager/dispatcher.d/$i
+done
+
+%files
+%attr(0755, root, root)%{_bindir}/redsocks
+%config %{_sysconfdir}/redsocks.conf.sample
+%config(noreplace) %{_sysconfdir}/sysconfig/redsocks.env
+%{_unitdir}/redsocks.service
+
+%files NetworkManager-config
+%attr(0755, root, root)%{_bindir}/redsocks-setup-proxy.sh
+%attr(0755, root, root)%{_bindir}/redsocks-proxynet
+%{_sysconfdir}/NetworkManager/dispatcher.d/*
+%config %{_sysconfdir}/redsocks.conf.template
+%config %{_sysconfdir}/sysconfig/redsocks-setup-proxy.sample
+%config(noreplace) %{_sysconfdir}/sysconfig/redsocks-setup-proxy
